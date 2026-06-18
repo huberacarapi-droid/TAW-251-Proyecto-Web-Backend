@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desarrollo WEB Backend - Proyecto Dashboard Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #000 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 50px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 18px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-bottom: 15px;
+        }
+
+        h1 {
+            font-size: 32px;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 16px;
+        }
+
+        .info-card {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.3s ease;
+        }
+
+        .info-card:hover {
+            transform: translateX(5px);
+        }
+
+        .info-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4a5568;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .info-value {
+            font-size: 20px;
+            color: #2d3748;
+            font-weight: 500;
+        }
+
+        .info-value a {
+            color: #667eea;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .info-value a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .tech-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #e2e8f0;
+        }
+
+        .tech-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 15px;
+        }
+
+        .tech-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .tech-tag {
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .tech-tag:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .project-features {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f0f4ff;
+            border-radius: 12px;
+        }
+
+        .project-features h3 {
+            color: #2d3748;
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+
+        .project-features ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .project-features li {
+            padding: 6px 0;
+            color: #4a5568;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+
+        .project-features li::before {
+            content: "✓";
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        .footer {
+            margin-top: 35px;
+            text-align: center;
+            color: #a0aec0;
+            font-size: 14px;
+        }
+
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: #48bb78;
+            color: white;
+            padding: 4px 14px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 25px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            .info-value {
+                font-size: 17px;
+            }
+
+            .tech-tag {
+                font-size: 12px;
+                padding: 4px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="badge">TAW-251 Desarrollo WEB Backend</span>
+            <h1>Sistema de Gestión de Productos</h1>
+            <p class="subtitle">Sistema de Gestión de Productos, Categorías y Usuarios</p>
+        </div>
+
+        <div class="info-card">
+            <div class="info-label"> Nombre Completo</div>
+            <div class="info-value">Huber Acarapi Mamani</div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-label">Enlace de GitHub</div>
+            <div class="info-value">
+                <a href="https://github.com/huberacarapi-droid/TAW-251-Proyecto-Web-Backend" target="_blank">
+                    https://github.com/huberacarapi-droid/TAW-251-Proyecto-Web-Backend
+                    <span class="status-badge">Público</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-label">Enlace del Proyecto</div>
+            <div class="info-value">
+                <a href="https://taw-251-proyecto-web-backend-production.up.railway.app/" target="_blank">
+                    https://taw-251-proyecto-web-backend-production.up.railway.app/
+                    <span class="status-badge">Activo</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="tech-section">
+            <div class="tech-title"> Tecnologías Utilizadas</div>
+            <div class="tech-tags">
+                <span class="tech-tag">React 18</span>
+                <span class="tech-tag">TypeScript</span>
+                <span class="tech-tag">Node.js</span>
+                <span class="tech-tag">Express</span>
+                <span class="tech-tag">TypeORM</span>
+                <span class="tech-tag">PostgreSQL</span>
+                <span class="tech-tag">Chart.js</span>
+                <span class="tech-tag">Bootstrap 5</span>
+                <span class="tech-tag">jspdf</span>
+                <span class="tech-tag">JWT</span>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>
+                📅 Proyecto desarrollado para la materia 
+                <strong>Desarrollo WEB Backend</strong> · 
+                <a href="https://github.com/huberacarapi-droid/TAW-251-Proyecto-Web-Backend" target="_blank">
+                    Ver código fuente
+                </a>
+            </p>
+            <p style="margin-top: 8px; font-size: 12px;">
+                &copy; 2026 - Todos los derechos reservados
+            </p>
+        </div>
+    </div>
+</body>
+</html>

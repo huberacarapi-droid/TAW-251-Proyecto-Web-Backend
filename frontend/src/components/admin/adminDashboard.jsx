@@ -174,55 +174,115 @@ function AdminDashboard() {
     }
   }, []);
 
-  // Generar datos para gráficos
+  // Generar datos para gráficos - VERSIÓN CORREGIDA
   const generateChartData = useCallback((products, categories) => {
     try {
-      // Datos para gráfico de barras - Productos por categoría
+      // Crear mapa de categorías por ID
       const categoryMap = {};
       categories.forEach(cat => {
         categoryMap[cat.id] = cat.nombre;
       });
 
+      // Datos para gráfico de barras - Productos por categoría
       const categoryCounts = {};
+      
       products.forEach(product => {
-        const catId = product.categoryId || 'sin-categoria';
-        categoryCounts[catId] = (categoryCounts[catId] || 0) + 1;
+        // CORRECCIÓN: Usar product.category?.id en lugar de product.categoryId
+        const catId = product.category?.id || 'sin-categoria';
+        const catName = product.category?.nombre || 'Sin categoría';
+        
+        if (!categoryCounts[catId]) {
+          categoryCounts[catId] = {
+            count: 0,
+            name: catName,
+            totalValue: 0
+          };
+        }
+        categoryCounts[catId].count += 1;
+        
+        // Calcular valor del producto (precio * stock)
+        const price = parseFloat(product.precio) || 0;
+        const stock = Math.max(0, product.stock || 0);
+        categoryCounts[catId].totalValue += price * stock;
       });
 
+      // Preparar datos para gráfico de barras (productos por categoría)
       const labels = [];
       const data = [];
       Object.keys(categoryCounts).forEach(catId => {
-        const label = categoryMap[catId] || 'Sin categoría';
-        labels.push(label);
-        data.push(categoryCounts[catId]);
+        labels.push(categoryCounts[catId].name);
+        data.push(categoryCounts[catId].count);
       });
 
-      // Datos para gráfico de valor por categoría
-      const categoryValues = {};
-      products.forEach(product => {
-        const catId = product.categoryId || 'sin-categoria';
-        const value = (parseFloat(product.precio) || 0) * (product.stock || 0);
-        categoryValues[catId] = (categoryValues[catId] || 0) + value;
-      });
-
+      // Preparar datos para gráfico de doughnut (valor por categoría)
       const valueLabels = [];
       const valueData = [];
-      Object.keys(categoryValues).forEach(catId => {
-        const label = categoryMap[catId] || 'Sin categoría';
-        valueLabels.push(label);
-        valueData.push(categoryValues[catId]);
+      Object.keys(categoryCounts).forEach(catId => {
+        valueLabels.push(categoryCounts[catId].name);
+        valueData.push(categoryCounts[catId].totalValue);
       });
 
-      // Datos mensuales (simulados - en producción vendrían de API)
-      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-      const monthlyProducts = months.map(() => Math.floor(Math.random() * 20) + 5);
-      const monthlyValue = months.map(() => Math.floor(Math.random() * 10000) + 2000);
+      // Si no hay datos, mostrar valores por defecto
+      if (labels.length === 0) {
+        labels.push('Sin datos');
+        data.push(0);
+        valueLabels.push('Sin datos');
+        valueData.push(0);
+      }
+
+      // Datos mensuales - Usando fechas reales de los productos
+      const monthlyData = {};
+      products.forEach(product => {
+        if (product.createdAt) {
+          const date = new Date(product.createdAt);
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          const monthName = date.toLocaleString('es-ES', { month: 'short' });
+          
+          if (!monthlyData[monthKey]) {
+            monthlyData[monthKey] = {
+              name: monthName,
+              count: 0,
+              value: 0
+            };
+          }
+          monthlyData[monthKey].count += 1;
+          const price = parseFloat(product.precio) || 0;
+          const stock = Math.max(0, product.stock || 0);
+          monthlyData[monthKey].value += price * stock;
+        }
+      });
+
+      // Ordenar por mes y preparar datos
+      const sortedMonths = Object.keys(monthlyData).sort();
+      
+      // Si no hay datos mensuales, usar datos simulados
+      let monthlyProducts = [];
+      let monthlyValue = [];
+      let monthLabels = [];
+      
+      if (sortedMonths.length > 0) {
+        monthLabels = sortedMonths.map(key => monthlyData[key].name);
+        monthlyProducts = sortedMonths.map(key => monthlyData[key].count);
+        monthlyValue = sortedMonths.map(key => monthlyData[key].value);
+      } else {
+        // Datos simulados si no hay productos con fecha
+        const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        monthLabels = months;
+        monthlyProducts = months.map(() => Math.floor(Math.random() * 20) + 5);
+        monthlyValue = months.map(() => Math.floor(Math.random() * 10000) + 2000);
+      }
 
       return {
-        categoryCounts: { labels: labels.length > 0 ? labels : ['Sin datos'], data: data.length > 0 ? data : [0] },
-        categoryValues: { labels: valueLabels.length > 0 ? valueLabels : ['Sin datos'], data: valueData.length > 0 ? valueData : [0] },
+        categoryCounts: { 
+          labels: labels, 
+          data: data 
+        },
+        categoryValues: { 
+          labels: valueLabels, 
+          data: valueData 
+        },
         monthly: {
-          labels: months,
+          labels: monthLabels,
           products: monthlyProducts,
           value: monthlyValue,
         },
@@ -232,7 +292,11 @@ function AdminDashboard() {
       return {
         categoryCounts: { labels: ['Sin datos'], data: [0] },
         categoryValues: { labels: ['Sin datos'], data: [0] },
-        monthly: { labels: ['Ene', 'Feb', 'Mar'], products: [0, 0, 0], value: [0, 0, 0] },
+        monthly: { 
+          labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'], 
+          products: [0, 0, 0, 0, 0, 0], 
+          value: [0, 0, 0, 0, 0, 0] 
+        },
       };
     }
   }, []);
@@ -249,6 +313,15 @@ function AdminDashboard() {
         api.getProducts().catch(() => []),
         api.getUsers().catch(() => []),
       ]);
+
+      // Debug: Verificar estructura de los datos
+      console.log('Products loaded:', products.map(p => ({
+        id: p.id,
+        nombre: p.nombre,
+        category: p.category,
+        precio: p.precio,
+        stock: p.stock
+      })));
 
       // Cálculos de estadísticas
       const totalStock = products.reduce((sum, p) => sum + Math.max(0, p.stock || 0), 0);
@@ -472,7 +545,7 @@ function AdminDashboard() {
     },
   }), []);
 
-  // Datos para gráficos con validación
+  // Datos para gráficos con validación - CORREGIDO
   const barChartData = useMemo(() => {
     const data = dashboardData.chartData?.categoryCounts || { labels: ['Sin datos'], data: [0] };
     return {
@@ -488,6 +561,8 @@ function AdminDashboard() {
             'rgba(23, 162, 184, 0.8)',
             'rgba(220, 53, 69, 0.8)',
             'rgba(111, 66, 193, 0.8)',
+            'rgba(255, 159, 64, 0.8)',
+            'rgba(54, 162, 235, 0.8)',
           ],
           borderColor: [
             'rgb(13, 110, 253)',
@@ -496,6 +571,8 @@ function AdminDashboard() {
             'rgb(23, 162, 184)',
             'rgb(220, 53, 69)',
             'rgb(111, 66, 193)',
+            'rgb(255, 159, 64)',
+            'rgb(54, 162, 235)',
           ],
           borderWidth: 2,
         },
@@ -503,13 +580,32 @@ function AdminDashboard() {
     };
   }, [dashboardData.chartData]);
 
+  // Datos para gráfico Doughnut - CORREGIDO
   const doughnutData = useMemo(() => {
     const data = dashboardData.chartData?.categoryValues || { labels: ['Sin datos'], data: [0] };
+    // Verificar que los datos sean válidos
+    const hasValidData = data.data && data.data.some(val => val > 0);
+    
+    if (!hasValidData) {
+      return {
+        labels: ['Sin datos'],
+        datasets: [
+          {
+            label: 'Valor por Categoría',
+            data: [1],
+            backgroundColor: ['rgba(200, 200, 200, 0.8)'],
+            borderColor: ['rgb(200, 200, 200)'],
+            borderWidth: 2,
+          },
+        ],
+      };
+    }
+
     return {
       labels: data.labels || ['Sin datos'],
       datasets: [
         {
-          label: 'Valor por Categoría',
+          label: 'Valor por Categoría ($)',
           data: data.data || [0],
           backgroundColor: [
             'rgba(13, 110, 253, 0.8)',
@@ -518,6 +614,8 @@ function AdminDashboard() {
             'rgba(23, 162, 184, 0.8)',
             'rgba(220, 53, 69, 0.8)',
             'rgba(111, 66, 193, 0.8)',
+            'rgba(255, 159, 64, 0.8)',
+            'rgba(54, 162, 235, 0.8)',
           ],
           borderColor: '#fff',
           borderWidth: 2,
@@ -551,6 +649,13 @@ function AdminDashboard() {
       ],
     };
   }, [dashboardData.monthlyData]);
+
+  // Verificar si hay datos para gráficos
+  const hasChartData = useMemo(() => {
+    const counts = dashboardData.chartData?.categoryCounts?.data || [];
+    const values = dashboardData.chartData?.categoryValues?.data || [];
+    return (counts.some(v => v > 0) || values.some(v => v > 0));
+  }, [dashboardData.chartData]);
 
   // Efectos
   useEffect(() => {
@@ -587,14 +692,6 @@ function AdminDashboard() {
       day: 'numeric',
     });
   }, [currentTime]);
-
-  // Verificar si hay datos para gráficos
-  const hasChartData = useMemo(() => {
-    return (
-      dashboardData.chartData?.categoryCounts?.data?.length > 0 &&
-      dashboardData.chartData?.categoryCounts?.data.some(v => v > 0)
-    );
-  }, [dashboardData.chartData]);
 
   if (loading) {
     return <LoadingSpinner message="Cargando estadísticas del dashboard..." />;
@@ -707,7 +804,7 @@ function AdminDashboard() {
             icon="fa-chart-bar"
             emptyMessage="No hay datos de productos para mostrar"
           >
-            {hasChartData && (
+            {barChartData && barChartData.labels && barChartData.labels.length > 0 && (
               <Bar 
                 data={barChartData} 
                 options={{
@@ -732,7 +829,7 @@ function AdminDashboard() {
             icon="fa-chart-pie"
             emptyMessage="No hay datos de valor para mostrar"
           >
-            {hasChartData && (
+            {doughnutData && doughnutData.labels && doughnutData.labels.length > 0 && (
               <Doughnut 
                 data={doughnutData}
                 options={{
@@ -765,7 +862,7 @@ function AdminDashboard() {
             icon="fa-chart-line"
             emptyMessage="No hay datos de tendencia para mostrar"
           >
-            {dashboardData.monthlyData?.products?.length > 0 && (
+            {lineChartData && lineChartData.labels && lineChartData.labels.length > 0 && (
               <Line 
                 data={lineChartData}
                 options={{
