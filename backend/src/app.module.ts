@@ -10,13 +10,17 @@ import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+
     TypeOrmModule.forRoot({
-      type: 'mysql',
-      host: 'localhost',
-      port: 3306,
-      username:'admin',
-      password: 'Admin.2026*',
-      database: 'db_taw251_proyecto',
+      type: process.env.DB_TYPE as 'mysql' | 'postgres' || 'mysql',
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '3306', 10),
+      username: process.env.DB_USERNAME || 'root',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_NAME || 'test',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: false,
     }),
@@ -33,3 +37,9 @@ import { ConfigModule } from '@nestjs/config';
   providers: [ CaptchaService ],
 })
 export class AppModule {}
+   /*type: 'mysql',
+      host: 'localhost',
+      port: 3306,
+      username:'admin',
+      password: 'Admin.2026*',
+      database: 'db_taw251_proyecto',*/

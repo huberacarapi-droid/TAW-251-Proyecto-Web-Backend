@@ -1,255 +1,806 @@
 // src/components/admin/AdminDashboard.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../services/adminServices';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  PointElement,
+  LineElement,
+} from 'chart.js';
+import { Bar, Doughnut, Line } from 'react-chartjs-2';
 import '../../styles/Admin.css';
 
+// Registrar componentes de Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  PointElement,
+  LineElement
+);
+
+// Componente de carga
+const LoadingSpinner = ({ message = 'Cargando estadísticas...' }) => (
+  <div className="text-center py-5">
+    <div className="spinner-border text-primary" role="status">
+      <span className="visually-hidden">Cargando...</span>
+    </div>
+    <p className="mt-3 text-muted">{message}</p>
+  </div>
+);
+
+// Componente de tarjeta de estadísticas
+const StatCard = ({ icon, label, value, subtitle, color, linkTo, linkText }) => {
+  const colorMap = {
+    primary: 'stat-card-primary',
+    success: 'stat-card-success',
+    info: 'stat-card-info',
+    warning: 'stat-card-warning',
+  };
+
+  const iconMap = {
+    products: 'fa-box',
+    categories: 'fa-tags',
+    users: 'fa-users',
+    inventory: 'fa-chart-line',
+  };
+
+  return (
+    <div className={`dashboard-card ${colorMap[color]}`}>
+      <div className="card-body">
+        <div className="d-flex justify-content-between align-items-center">
+          <div>
+            <div className="card-label">{label}</div>
+            <div className="card-number">{value}</div>
+            {subtitle && (
+              <small className="text-muted d-block mt-1">
+                <i className={`fas ${iconMap[icon]} me-1`}></i>
+                {subtitle}
+              </small>
+            )}
+          </div>
+          <div className="card-icon-wrapper">
+            <i className={`fas ${iconMap[icon]}`}></i>
+          </div>
+        </div>
+        {linkTo && (
+          <div className="card-footer-link">
+            <Link to={linkTo} className="stretched-link">
+              {linkText || 'Ver todos'} <i className="fas fa-arrow-right ms-1"></i>
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Componente de badge de rol
+const RoleBadge = ({ rol }) => {
+  const roles = useMemo(() => ({
+    admin: { color: 'danger', icon: 'fa-user-shield', label: 'Administrador' },
+    user: { color: 'primary', icon: 'fa-user', label: 'Usuario' },
+    guest: { color: 'secondary', icon: 'fa-user-clock', label: 'Invitado' },
+  }), []);
+
+  const rolInfo = roles[rol] || roles.guest;
+  
+  return (
+    <span className={`badge bg-${rolInfo.color}`}>
+      <i className={`fas ${rolInfo.icon} me-1`}></i>
+      {rolInfo.label}
+    </span>
+  );
+};
+
+// Componente para gráfico con manejo de errores
+const ChartWrapper = ({ children, title, icon, emptyMessage = 'No hay datos suficientes para mostrar' }) => {
+  return (
+    <div className="dashboard-card">
+      <div className="card-header-custom">
+        <h5 className="mb-0">
+          <i className={`fas ${icon} me-2 text-primary`}></i>
+          {title}
+        </h5>
+      </div>
+      <div className="card-body" style={{ height: '300px', position: 'relative' }}>
+        {children ? (
+          children
+        ) : (
+          <div className="d-flex align-items-center justify-content-center h-100">
+            <p className="text-muted text-center">
+              <i className="fas fa-chart-simple fa-2x d-block mb-2"></i>
+              {emptyMessage}
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 function AdminDashboard() {
-  const [stats, setStats] = useState({
-    categories: 0,
-    products: 0,
-    users: 0,
-    admins: 0,
-    totalStock: 0,
-    totalValue: 0
+  const [dashboardData, setDashboardData] = useState({
+    stats: {
+      categories: 0,
+      products: 0,
+      users: 0,
+      admins: 0,
+      totalStock: 0,
+      totalValue: 0,
+    },
+    recentProducts: [],
+    recentUsers: [],
+    chartData: {
+      categoryCounts: { labels: [], data: [] },
+      categoryValues: { labels: [], data: [] },
+      monthly: { labels: [], products: [], value: [] },
+    },
+    monthlyData: { labels: [], products: [], value: [] },
   });
-  const [recentProducts, setRecentProducts] = useState([]);
-  const [recentUsers, setRecentUsers] = useState([]);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
 
+  // Formateador de fecha
+  const formatDate = useCallback((date) => {
+    if (!date) return 'Fecha no disponible';
+    try {
+      return new Date(date).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return 'Fecha inválida';
+    }
+  }, []);
+
+  // Generar datos para gráficos
+  const generateChartData = useCallback((products, categories) => {
+    try {
+      // Datos para gráfico de barras - Productos por categoría
+      const categoryMap = {};
+      categories.forEach(cat => {
+        categoryMap[cat.id] = cat.nombre;
+      });
+
+      const categoryCounts = {};
+      products.forEach(product => {
+        const catId = product.categoryId || 'sin-categoria';
+        categoryCounts[catId] = (categoryCounts[catId] || 0) + 1;
+      });
+
+      const labels = [];
+      const data = [];
+      Object.keys(categoryCounts).forEach(catId => {
+        const label = categoryMap[catId] || 'Sin categoría';
+        labels.push(label);
+        data.push(categoryCounts[catId]);
+      });
+
+      // Datos para gráfico de valor por categoría
+      const categoryValues = {};
+      products.forEach(product => {
+        const catId = product.categoryId || 'sin-categoria';
+        const value = (parseFloat(product.precio) || 0) * (product.stock || 0);
+        categoryValues[catId] = (categoryValues[catId] || 0) + value;
+      });
+
+      const valueLabels = [];
+      const valueData = [];
+      Object.keys(categoryValues).forEach(catId => {
+        const label = categoryMap[catId] || 'Sin categoría';
+        valueLabels.push(label);
+        valueData.push(categoryValues[catId]);
+      });
+
+      // Datos mensuales (simulados - en producción vendrían de API)
+      const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const monthlyProducts = months.map(() => Math.floor(Math.random() * 20) + 5);
+      const monthlyValue = months.map(() => Math.floor(Math.random() * 10000) + 2000);
+
+      return {
+        categoryCounts: { labels: labels.length > 0 ? labels : ['Sin datos'], data: data.length > 0 ? data : [0] },
+        categoryValues: { labels: valueLabels.length > 0 ? valueLabels : ['Sin datos'], data: valueData.length > 0 ? valueData : [0] },
+        monthly: {
+          labels: months,
+          products: monthlyProducts,
+          value: monthlyValue,
+        },
+      };
+    } catch (error) {
+      console.error('Error generating chart data:', error);
+      return {
+        categoryCounts: { labels: ['Sin datos'], data: [0] },
+        categoryValues: { labels: ['Sin datos'], data: [0] },
+        monthly: { labels: ['Ene', 'Feb', 'Mar'], products: [0, 0, 0], value: [0, 0, 0] },
+      };
+    }
+  }, []);
+
+  // Cargar datos del dashboard
+  const loadDashboardData = useCallback(async (showRefresh = false) => {
+    try {
+      if (showRefresh) setIsRefreshing(true);
+      else setLoading(true);
+      setError(null);
+
+      const [categories, products, users] = await Promise.all([
+        api.getCategories().catch(() => []),
+        api.getProducts().catch(() => []),
+        api.getUsers().catch(() => []),
+      ]);
+
+      // Cálculos de estadísticas
+      const totalStock = products.reduce((sum, p) => sum + Math.max(0, p.stock || 0), 0);
+      const totalValue = products.reduce((sum, p) => {
+        const price = parseFloat(p.precio) || 0;
+        const stock = Math.max(0, p.stock || 0);
+        return sum + (price * stock);
+      }, 0);
+      const admins = users.filter(u => u.rol === 'admin').length;
+
+      // Ordenar y obtener recientes
+      const sortedProducts = [...products].sort((a, b) => 
+        new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+      ).slice(0, 5);
+
+      const sortedUsers = [...users].sort((a, b) => 
+        new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
+      ).slice(0, 5);
+
+      // Generar datos para gráficos
+      const chartData = generateChartData(products, categories);
+
+      setDashboardData({
+        stats: {
+          categories: categories.length,
+          products: products.length,
+          users: users.length,
+          admins,
+          totalStock,
+          totalValue,
+        },
+        recentProducts: sortedProducts,
+        recentUsers: sortedUsers,
+        chartData,
+        monthlyData: chartData.monthly,
+      });
+
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+      setError('Error al cargar los datos del dashboard. Por favor, intenta nuevamente.');
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [generateChartData]);
+
+  // Generar reporte PDF
+  const generatePDFReport = useCallback(async () => {
+    try {
+      setGeneratingPDF(true);
+      
+      const doc = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = doc.internal.pageSize.width;
+      
+      // Título
+      doc.setFontSize(22);
+      doc.setTextColor(33, 37, 41);
+      doc.text('Dashboard - Reporte de Gestión', pageWidth / 2, 25, { align: 'center' });
+      
+      // Fecha
+      doc.setFontSize(11);
+      doc.setTextColor(100, 100, 100);
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      doc.text(`Generado: ${dateStr}`, pageWidth / 2, 33, { align: 'center' });
+      
+      // Línea separadora
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, 38, pageWidth - 20, 38);
+      
+      // Resumen de Estadísticas
+      doc.setFontSize(16);
+      doc.setTextColor(33, 37, 41);
+      doc.text('Resumen de Estadísticas', 20, 48);
+      
+      const { stats } = dashboardData;
+      const statsData = [
+        ['Métrica', 'Valor', 'Detalle'],
+        ['Total Productos', stats.products.toString(), `${stats.totalStock} unidades en stock`],
+        ['Total Categorías', stats.categories.toString(), ''],
+        ['Total Usuarios', stats.users.toString(), `${stats.admins} administradores`],
+        ['Valor del Inventario', `$${stats.totalValue.toFixed(2)}`, ''],
+      ];
+      
+      doc.autoTable({
+        startY: 52,
+        head: [statsData[0]],
+        body: statsData.slice(1),
+        theme: 'striped',
+        headStyles: {
+          fillColor: [13, 110, 253],
+          textColor: [255, 255, 255],
+          fontSize: 10,
+        },
+        bodyStyles: {
+          fontSize: 10,
+        },
+        columnStyles: {
+          0: { cellWidth: 70 },
+          1: { cellWidth: 50 },
+          2: { cellWidth: 70 },
+        },
+        margin: { left: 20 },
+      });
+      
+      // Productos Recientes
+      const finalY = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(16);
+      doc.setTextColor(33, 37, 41);
+      doc.text('Productos Recientes', 20, finalY);
+      
+      const productsData = dashboardData.recentProducts.map(p => [
+        p.nombre || 'Sin nombre',
+        p.category?.nombre || 'Sin categoría',
+        `$${parseFloat(p.precio || 0).toFixed(2)}`,
+        `${p.stock || 0} unidades`,
+      ]);
+      
+      doc.autoTable({
+        startY: finalY + 4,
+        head: [['Producto', 'Categoría', 'Precio', 'Stock']],
+        body: productsData.length > 0 ? productsData : [['No hay productos registrados', '', '', '']],
+        theme: 'striped',
+        headStyles: {
+          fillColor: [13, 110, 253],
+          textColor: [255, 255, 255],
+          fontSize: 9,
+        },
+        bodyStyles: {
+          fontSize: 9,
+        },
+        columnStyles: {
+          0: { cellWidth: 55 },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 35 },
+        },
+        margin: { left: 20 },
+      });
+      
+      // Usuarios Recientes
+      const finalY2 = doc.lastAutoTable.finalY + 10;
+      doc.setFontSize(16);
+      doc.setTextColor(33, 37, 41);
+      doc.text('Usuarios Recientes', 20, finalY2);
+      
+      const usersData = dashboardData.recentUsers.map(u => [
+        `${u.nombre || ''} ${u.paterno || ''}`.trim() || 'Sin nombre',
+        u.email || 'Sin email',
+        u.rol || 'user',
+        formatDate(u.updatedAt || u.createdAt),
+      ]);
+      
+      doc.autoTable({
+        startY: finalY2 + 4,
+        head: [['Nombre', 'Email', 'Rol', 'Última actividad']],
+        body: usersData.length > 0 ? usersData : [['No hay usuarios registrados', '', '', '']],
+        theme: 'striped',
+        headStyles: {
+          fillColor: [13, 110, 253],
+          textColor: [255, 255, 255],
+          fontSize: 9,
+        },
+        bodyStyles: {
+          fontSize: 9,
+        },
+        columnStyles: {
+          0: { cellWidth: 45 },
+          1: { cellWidth: 50 },
+          2: { cellWidth: 25 },
+          3: { cellWidth: 40 },
+        },
+        margin: { left: 20 },
+      });
+      
+      // Pie de página
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(150, 150, 150);
+        doc.text(
+          `Página ${i} de ${pageCount} - Sistema de Gestión Admin`,
+          pageWidth / 2,
+          doc.internal.pageSize.height - 10,
+          { align: 'center' }
+        );
+      }
+      
+      // Descargar PDF
+      doc.save(`dashboard-reporte-${now.toISOString().split('T')[0]}.pdf`);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Error al generar el reporte PDF. Por favor, intenta nuevamente.');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  }, [dashboardData, formatDate]);
+
+  // Configuración de gráficos - con validación de datos
+  const chartOptions = useMemo(() => ({
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: {
+          font: {
+            size: 12,
+          },
+        },
+      },
+    },
+  }), []);
+
+  // Datos para gráficos con validación
+  const barChartData = useMemo(() => {
+    const data = dashboardData.chartData?.categoryCounts || { labels: ['Sin datos'], data: [0] };
+    return {
+      labels: data.labels || ['Sin datos'],
+      datasets: [
+        {
+          label: 'Productos por Categoría',
+          data: data.data || [0],
+          backgroundColor: [
+            'rgba(13, 110, 253, 0.8)',
+            'rgba(40, 167, 69, 0.8)',
+            'rgba(255, 193, 7, 0.8)',
+            'rgba(23, 162, 184, 0.8)',
+            'rgba(220, 53, 69, 0.8)',
+            'rgba(111, 66, 193, 0.8)',
+          ],
+          borderColor: [
+            'rgb(13, 110, 253)',
+            'rgb(40, 167, 69)',
+            'rgb(255, 193, 7)',
+            'rgb(23, 162, 184)',
+            'rgb(220, 53, 69)',
+            'rgb(111, 66, 193)',
+          ],
+          borderWidth: 2,
+        },
+      ],
+    };
+  }, [dashboardData.chartData]);
+
+  const doughnutData = useMemo(() => {
+    const data = dashboardData.chartData?.categoryValues || { labels: ['Sin datos'], data: [0] };
+    return {
+      labels: data.labels || ['Sin datos'],
+      datasets: [
+        {
+          label: 'Valor por Categoría',
+          data: data.data || [0],
+          backgroundColor: [
+            'rgba(13, 110, 253, 0.8)',
+            'rgba(40, 167, 69, 0.8)',
+            'rgba(255, 193, 7, 0.8)',
+            'rgba(23, 162, 184, 0.8)',
+            'rgba(220, 53, 69, 0.8)',
+            'rgba(111, 66, 193, 0.8)',
+          ],
+          borderColor: '#fff',
+          borderWidth: 2,
+        },
+      ],
+    };
+  }, [dashboardData.chartData]);
+
+  const lineChartData = useMemo(() => {
+    const monthly = dashboardData.monthlyData || { labels: [], products: [], value: [] };
+    return {
+      labels: monthly.labels || ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+      datasets: [
+        {
+          label: 'Productos Agregados',
+          data: monthly.products || [0, 0, 0, 0, 0, 0],
+          borderColor: 'rgb(13, 110, 253)',
+          backgroundColor: 'rgba(13, 110, 253, 0.1)',
+          fill: true,
+          tension: 0.4,
+        },
+        {
+          label: 'Valor ($)',
+          data: monthly.value || [0, 0, 0, 0, 0, 0],
+          borderColor: 'rgb(40, 167, 69)',
+          backgroundColor: 'rgba(40, 167, 69, 0.1)',
+          fill: true,
+          tension: 0.4,
+          yAxisID: 'y1',
+        },
+      ],
+    };
+  }, [dashboardData.monthlyData]);
+
+  // Efectos
   useEffect(() => {
     loadDashboardData();
-    // Actualizar reloj cada minuto
+
     const timer = setInterval(() => {
       setCurrentTime(new Date());
     }, 60000);
-    return () => clearInterval(timer);
-  }, []);
 
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      const [categories, products, users] = await Promise.all([
-        api.getCategories(),
-        api.getProducts(),
-        api.getUsers()
-      ]);
+    const refreshTimer = setInterval(() => {
+      loadDashboardData(true);
+    }, 300000);
 
-      // Calcular estadísticas avanzadas
-      const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
-      const totalValue = products.reduce((sum, p) => sum + (parseFloat(p.precio) * (p.stock || 0)), 0);
-      const admins = users.filter(u => u.rol === 'admin').length;
-
-      setStats({
-        categories: categories.length,
-        products: products.length,
-        users: users.length,
-        admins: admins,
-        totalStock: totalStock,
-        totalValue: totalValue
-      });
-
-      // Obtener productos recientes (últimos 5)
-      const sortedProducts = [...products].sort((a, b) => 
-        new Date(b.updatedAt) - new Date(a.updatedAt)
-      );
-      setRecentProducts(sortedProducts.slice(0, 5));
-
-      // Obtener usuarios recientes (últimos 5)
-      const sortedUsers = [...users].sort((a, b) => 
-        new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt)
-      );
-      setRecentUsers(sortedUsers.slice(0, 5));
-
-      setError(null);
-    } catch (error) {
-      console.error('Error loading dashboard data:', error);
-      setError('Error al cargar los datos del dashboard');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatDate = (date) => {
-    return new Date(date).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getRolBadge = (rol) => {
-    const roles = {
-      admin: { color: 'danger', icon: 'fa-user-shield' },
-      user: { color: 'primary', icon: 'fa-user' },
-      guest: { color: 'secondary', icon: 'fa-user-clock' }
+    return () => {
+      clearInterval(timer);
+      clearInterval(refreshTimer);
     };
-    const rolInfo = roles[rol] || roles.guest;
+  }, [loadDashboardData]);
+
+  // Memoizar valores calculados
+  const formattedTime = useMemo(() => {
+    return currentTime.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }, [currentTime]);
+
+  const formattedDate = useMemo(() => {
+    return currentTime.toLocaleDateString('es-ES', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  }, [currentTime]);
+
+  // Verificar si hay datos para gráficos
+  const hasChartData = useMemo(() => {
     return (
-      <span className={`badge bg-${rolInfo.color}`}>
-        <i className={`fas ${rolInfo.icon} me-1`}></i>
-        {rol}
-      </span>
+      dashboardData.chartData?.categoryCounts?.data?.length > 0 &&
+      dashboardData.chartData?.categoryCounts?.data.some(v => v > 0)
     );
-  };
+  }, [dashboardData.chartData]);
 
   if (loading) {
-    return (
-      <div className="text-center py-5">
-        <div className="spinner-border text-primary" role="status">
-          <span className="visually-hidden">Cargando dashboard...</span>
-        </div>
-        <p className="mt-3 text-muted">Cargando estadísticas...</p>
-      </div>
-    );
+    return <LoadingSpinner message="Cargando estadísticas del dashboard..." />;
   }
 
   if (error) {
     return (
-      <div className="alert alert-danger" role="alert">
-        <i className="fas fa-exclamation-triangle me-2"></i>
-        {error}
-        <button className="btn btn-link" onClick={loadDashboardData}>Reintentar</button>
+      <div className="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+        <div>
+          <i className="fas fa-exclamation-triangle me-2"></i>
+          {error}
+        </div>
+        <button 
+          className="btn btn-outline-danger btn-sm" 
+          onClick={() => loadDashboardData()}
+        >
+          <i className="fas fa-sync-alt me-1"></i>
+          Reintentar
+        </button>
       </div>
     );
   }
 
+  const { stats, recentProducts, recentUsers } = dashboardData;
+
   return (
     <div className="admin-dashboard">
-      {/* Header con saludo y fecha */}
+      {/* Header */}
       <div className="dashboard-header">
         <div>
-          <h2 className="fw-bold mb-1">Dashboard</h2>
-          <p className="text-muted">
+          <h2 className="fw-bold mb-1 text-primary">Dashboard</h2>
+          <p className="text-muted mb-0">
             <i className="far fa-calendar-alt me-2"></i>
-            {currentTime.toLocaleDateString('es-ES', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
+            {formattedDate}
           </p>
         </div>
-        <div>
-          <button 
-            className="btn btn-outline-secondary me-2"
-            onClick={loadDashboardData}
+        <div className="d-flex align-items-center gap-3">
+          <button
+            className="btn btn-danger btn-sm"
+            onClick={generatePDFReport}
+            disabled={generatingPDF}
           >
-            <i className="fas fa-sync-alt me-1"></i>
-            Actualizar
+            <i className={`fas fa-file-pdf ${generatingPDF ? 'fa-spin' : ''} me-1`}></i>
+            {generatingPDF ? 'Generando...' : 'Exportar PDF'}
+          </button>
+          <button
+            className="btn btn-outline-secondary btn-sm"
+            onClick={() => loadDashboardData(true)}
+            disabled={isRefreshing}
+          >
+            <i className={`fas fa-sync-alt ${isRefreshing ? 'fa-spin' : ''} me-1`}></i>
+            {isRefreshing ? 'Actualizando...' : 'Actualizar'}
           </button>
           <span className="text-muted">
             <i className="far fa-clock me-1"></i>
-            {currentTime.toLocaleTimeString('es-ES')}
+            {formattedTime}
           </span>
         </div>
       </div>
 
-      {/* Tarjetas de estadísticas principales */}
+      {/* Tarjetas de estadísticas */}
+      <div className="row my-5">
+        <div className="col-xl-3 col-lg-6 col-md-6">
+          <StatCard
+            icon="products"
+            label="Productos"
+            value={stats.products}
+            color="primary"
+            linkTo="/admin/productos"
+          />
+        </div>
+
+        <div className="col-xl-3 col-lg-6 col-md-6">
+          <StatCard
+            icon="categories"
+            label="Categorías"
+            value={stats.categories}
+            color="success"
+            linkTo="/admin/categorias"
+          />
+        </div>
+
+        <div className="col-xl-3 col-lg-6 col-md-6">
+          <StatCard
+            icon="users"
+            label="Usuarios"
+            value={stats.users}
+            subtitle={`${stats.admins} administradores`}
+            color="info"
+            linkTo="/admin/usuarios"
+          />
+        </div>
+
+        <div className="col-xl-3 col-lg-6 col-md-6">
+          <StatCard
+            icon="inventory"
+            label="Valor del Inventario"
+            value={`$${stats.totalValue.toFixed(2)}`}
+            subtitle={`${stats.totalStock} unidades en stock`}
+            color="warning"
+          />
+        </div>
+      </div>
+
+      {/* Gráficos Estadísticos */}
       <div className="row g-4 mb-4">
-        <div className="col-xl-3 col-lg-6 col-md-6">
-          <div className="dashboard-card stat-card-primary">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <div className="card-label">Productos</div>
-                  <div className="card-number">{stats.products}</div>
-                </div>
-                <div className="card-icon-wrapper">
-                  <i className="fas fa-box"></i>
-                </div>
-              </div>
-              <div className="card-footer-link">
-                <Link to="/admin/productos" className="stretched-link">
-                  Ver todos <i className="fas fa-arrow-right ms-1"></i>
-                </Link>
-              </div>
-            </div>
-          </div>
+        <div className="col-lg-6">
+          <ChartWrapper 
+            title="Productos por Categoría" 
+            icon="fa-chart-bar"
+            emptyMessage="No hay datos de productos para mostrar"
+          >
+            {hasChartData && (
+              <Bar 
+                data={barChartData} 
+                options={{
+                  ...chartOptions,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      ticks: {
+                        stepSize: 1,
+                      },
+                    },
+                  },
+                }}
+              />
+            )}
+          </ChartWrapper>
         </div>
 
-        <div className="col-xl-3 col-lg-6 col-md-6">
-          <div className="dashboard-card stat-card-success">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <div className="card-label">Categorías</div>
-                  <div className="card-number">{stats.categories}</div>
-                </div>
-                <div className="card-icon-wrapper">
-                  <i className="fas fa-tags"></i>
-                </div>
-              </div>
-              <div className="card-footer-link">
-                <Link to="/admin/categorias" className="stretched-link">
-                  Ver todas <i className="fas fa-arrow-right ms-1"></i>
-                </Link>
-              </div>
-            </div>
-          </div>
+        <div className="col-lg-6">
+          <ChartWrapper 
+            title="Valor por Categoría" 
+            icon="fa-chart-pie"
+            emptyMessage="No hay datos de valor para mostrar"
+          >
+            {hasChartData && (
+              <Doughnut 
+                data={doughnutData}
+                options={{
+                  ...chartOptions,
+                  plugins: {
+                    ...chartOptions.plugins,
+                    legend: {
+                      position: 'bottom',
+                      labels: {
+                        font: {
+                          size: 11,
+                        },
+                        padding: 10,
+                      },
+                    },
+                  },
+                  cutout: '60%',
+                }}
+              />
+            )}
+          </ChartWrapper>
         </div>
+      </div>
 
-        <div className="col-xl-3 col-lg-6 col-md-6">
-          <div className="dashboard-card stat-card-info">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <div className="card-label">Usuarios</div>
-                  <div className="card-number">{stats.users}</div>
-                  <small className="text-muted">
-                    <i className="fas fa-user-shield me-1"></i>
-                    {stats.admins} admin
-                  </small>
-                </div>
-                <div className="card-icon-wrapper">
-                  <i className="fas fa-users"></i>
-                </div>
-              </div>
-              <div className="card-footer-link">
-                <Link to="/admin/usuarios" className="stretched-link">
-                  Ver todos <i className="fas fa-arrow-right ms-1"></i>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="col-xl-3 col-lg-6 col-md-6">
-          <div className="dashboard-card stat-card-warning">
-            <div className="card-body">
-              <div className="d-flex justify-content-between align-items-center">
-                <div>
-                  <div className="card-label">Valor del Inventario</div>
-                  <div className="card-number text-success">
-                    ${stats.totalValue.toFixed(2)}
-                  </div>
-                  <small className="text-muted">
-                    <i className="fas fa-boxes me-1"></i>
-                    {stats.totalStock} unidades
-                  </small>
-                </div>
-                <div className="card-icon-wrapper">
-                  <i className="fas fa-chart-line"></i>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* Tendencia Mensual */}
+      <div className="row g-4 mb-4">
+        <div className="col-12">
+          <ChartWrapper 
+            title="Tendencia Mensual" 
+            icon="fa-chart-line"
+            emptyMessage="No hay datos de tendencia para mostrar"
+          >
+            {dashboardData.monthlyData?.products?.length > 0 && (
+              <Line 
+                data={lineChartData}
+                options={{
+                  ...chartOptions,
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      position: 'left',
+                    },
+                    y1: {
+                      beginAtZero: true,
+                      position: 'right',
+                      grid: {
+                        drawOnChartArea: false,
+                      },
+                    },
+                  },
+                }}
+              />
+            )}
+          </ChartWrapper>
         </div>
       </div>
 
       {/* Actividad Reciente */}
       <div className="row g-4">
-        {/* Productos recientes */}
         <div className="col-lg-6">
           <div className="dashboard-card">
             <div className="card-header-custom">
               <h5 className="mb-0">
                 <i className="fas fa-box me-2 text-primary"></i>
                 Productos Recientes
+                <span className="badge bg-primary ms-2">
+                  {recentProducts.length}
+                </span>
               </h5>
               <Link to="/admin/productos" className="btn btn-sm btn-outline-primary">
                 Ver todos
@@ -275,6 +826,7 @@ function AdminDashboard() {
                               onError={(e) => {
                                 e.target.src = 'https://via.placeholder.com/40';
                               }}
+                              loading="lazy"
                             />
                           ) : (
                             <div className="recent-thumbnail placeholder-bg">
@@ -289,9 +841,11 @@ function AdminDashboard() {
                           </div>
                         </div>
                         <div className="text-end">
-                          <div className="fw-bold text-primary">${product.precio}</div>
+                          <div className="fw-bold text-primary">
+                            ${parseFloat(product.precio || 0).toFixed(2)}
+                          </div>
                           <small className="text-muted">
-                            Stock: {product.stock}
+                            Stock: {Math.max(0, product.stock || 0)}
                           </small>
                         </div>
                       </div>
@@ -303,13 +857,15 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* Usuarios recientes */}
         <div className="col-lg-6">
           <div className="dashboard-card">
             <div className="card-header-custom">
               <h5 className="mb-0">
                 <i className="fas fa-users me-2 text-info"></i>
                 Usuarios Recientes
+                <span className="badge bg-info ms-2">
+                  {recentUsers.length}
+                </span>
               </h5>
               <Link to="/admin/usuarios" className="btn btn-sm btn-outline-primary">
                 Ver todos
@@ -332,15 +888,15 @@ function AdminDashboard() {
                           </div>
                           <div className="ms-3">
                             <div className="fw-semibold">
-                              {user.nombre} {user.paterno}
+                              {`${user.nombre || ''} ${user.paterno || ''}`.trim() || 'Usuario sin nombre'}
                             </div>
                             <small className="text-muted d-block">
-                              {user.email}
+                              {user.email || 'Sin email'}
                             </small>
                           </div>
                         </div>
                         <div className="text-end">
-                          {getRolBadge(user.rol)}
+                          <RoleBadge rol={user.rol} />
                           <div>
                             <small className="text-muted">
                               {formatDate(user.updatedAt || user.createdAt)}
@@ -357,7 +913,7 @@ function AdminDashboard() {
         </div>
       </div>
 
-      {/* Accesos rápidos */}
+      {/* Acciones Rápidas */}
       <div className="row mt-4">
         <div className="col-12">
           <div className="dashboard-card">
@@ -366,18 +922,26 @@ function AdminDashboard() {
               Acciones Rápidas
             </h5>
             <div className="d-flex flex-wrap gap-2">
-              <Link to="/admin/productos" className="btn btn-outline-primary">
+              <Link to="/admin/productos/nuevo" className="btn btn-primary">
                 <i className="fas fa-plus me-1"></i>
                 Nuevo Producto
               </Link>
-              <Link to="/admin/categorias" className="btn btn-outline-success">
+              <Link to="/admin/categorias/nueva" className="btn btn-success">
                 <i className="fas fa-plus me-1"></i>
                 Nueva Categoría
               </Link>
-              <Link to="/admin/usuarios" className="btn btn-outline-info">
+              <Link to="/admin/usuarios/nuevo" className="btn btn-info text-white">
                 <i className="fas fa-user-plus me-1"></i>
                 Nuevo Usuario
               </Link>
+              <button 
+                className="btn btn-danger"
+                onClick={generatePDFReport}
+                disabled={generatingPDF}
+              >
+                <i className={`fas fa-file-pdf ${generatingPDF ? 'fa-spin' : ''} me-1`}></i>
+                {generatingPDF ? 'Generando PDF...' : 'Exportar Reporte PDF'}
+              </button>
               <Link to="/productos" className="btn btn-outline-secondary">
                 <i className="fas fa-store me-1"></i>
                 Ver Tienda
@@ -390,4 +954,4 @@ function AdminDashboard() {
   );
 }
 
-export default AdminDashboard;
+export default React.memo(AdminDashboard);

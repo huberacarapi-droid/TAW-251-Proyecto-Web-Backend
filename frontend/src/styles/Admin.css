@@ -52,11 +52,7 @@
 }
 
 .admin-main {
-  margin-left: 250px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+
 }
 
 .admin-navbar {
@@ -124,45 +120,7 @@
   padding: 4px 8px;
 }
 
-/* ===== RESPONSIVE ===== */
-@media (max-width: 768px) {
-  .admin-sidebar {
-    transform: translateX(-100%);
-  }
-  
-  .admin-sidebar.show {
-    transform: translateX(0);
-  }
-  
-  .admin-main {
-    margin-left: 0;
-  }
-  
-  .admin-navbar {
-    padding: 10px 15px;
-  }
-  
-  .admin-content {
-    padding: 15px;
-  }
-  
-  .admin-crud-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .admin-crud-header .btn {
-    width: 100%;
-  }
-  
-  .admin-table {
-    font-size: 14px;
-  }
-  
-  .admin-table .btn-group {
-    display: flex;
-  }
-}
+
 
 /* ===== MODAL ===== */
 .modal.show {

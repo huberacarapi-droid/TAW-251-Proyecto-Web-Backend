@@ -288,7 +288,8 @@ export const isUser = () => {
     return getUserRole() === 'user';
 };*/
 // services/authService.js
-const API_URL = "http://localhost:3000/auth";
+//const API_URL = "http://localhost:3000/auth";
+const API_URL = `${import.meta.env.VITE_APP_API_URL}/auth`;
 
 export const login = async (email, password, captchaToken) => {
     try {

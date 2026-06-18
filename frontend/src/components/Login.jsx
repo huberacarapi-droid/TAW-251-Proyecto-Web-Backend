@@ -5,6 +5,8 @@ import logo from "../assets/logo.png";
 import { login } from "../services/authService";
 
 function Login() {
+
+
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [captchaToken, setCaptchaToken] = useState(null);
@@ -13,6 +15,7 @@ function Login() {
     
     const navigate = useNavigate();
     const captchaRef = useRef(null);
+    const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -134,7 +137,7 @@ function Login() {
                             <div className="mb-3 d-flex justify-content-center">
                                 <ReCAPTCHA
                                     ref={captchaRef}
-                                    sitekey={"6Le7XCUtAAAAAIHLEVISFJ9vnLZnuk9jGP1GGgAB"}
+                                    sitekey={siteKey}
                                     onChange={handleCaptchaChange}
                                     onExpired={handleCaptchaExpired}
                                     onError={() => {

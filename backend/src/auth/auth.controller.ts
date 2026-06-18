@@ -18,7 +18,7 @@ export class AuthController {
   login(
     @Body() loginDto: LoginDto,
   ) {
-    console.log('Login attempt:', loginDto);
+    //console.log('Login attempt:', loginDto);
     return this.authService.login(
       loginDto,
     );

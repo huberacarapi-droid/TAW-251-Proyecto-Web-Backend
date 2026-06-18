@@ -32,7 +32,7 @@ export class CaptchaService {
         },
       );
 
-      console.log('reCAPTCHA verification response:', response.data);
+      //console.log('reCAPTCHA verification response:', response.data);
 
       if (response.data.success) {
         return true;

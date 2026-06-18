@@ -1,24 +1,34 @@
+// src/components/Navbar.jsx
 import { Link, useNavigate } from "react-router-dom";
 import { logout, isAuthenticated, getUser, getUserRole, isAdmin } from "../services/authService";
 import { useState, useEffect } from "react";
+
+// Importamos los íconos de FontAwesome si no los tienes
+// Si usas react-fontawesome: import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 function Navbar() {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [authenticated, setAuthenticated] = useState(false);
     const [userRole, setUserRole] = useState('guest');
+    const [isAdminUser, setIsAdminUser] = useState(false);
 
     useEffect(() => {
         // Actualizar estado cuando cambia la autenticación
         const updateUser = () => {
-            setAuthenticated(isAuthenticated());
-            setUser(getUser());
-            setUserRole(getUserRole());
+            const auth = isAuthenticated();
+            const currentUser = getUser();
+            const role = getUserRole();
+            
+            setAuthenticated(auth);
+            setUser(currentUser);
+            setUserRole(role);
+            setIsAdminUser(role === 'admin');
         };
 
         updateUser();
 
-        // Escuchar cambios en localStorage (para cuando se actualiza desde otro componente)
+        // Escuchar cambios en localStorage
         const handleStorageChange = (e) => {
             if (e.key === 'user' || e.key === 'token') {
                 updateUser();
@@ -26,7 +36,18 @@ function Navbar() {
         };
 
         window.addEventListener('storage', handleStorageChange);
-        return () => window.removeEventListener('storage', handleStorageChange);
+        
+        // También escuchar eventos personalizados para actualización
+        const handleAuthChange = () => {
+            updateUser();
+        };
+        
+        window.addEventListener('authChange', handleAuthChange);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+            window.removeEventListener('authChange', handleAuthChange);
+        };
     }, []);
 
     const handleLogout = () => {
@@ -34,6 +55,9 @@ function Navbar() {
         setAuthenticated(false);
         setUser(null);
         setUserRole('guest');
+        setIsAdminUser(false);
+        // Disparar evento de cambio de autenticación
+        window.dispatchEvent(new Event('authChange'));
         navigate("/login");
     };
 
@@ -61,6 +85,76 @@ function Navbar() {
         }
     };
 
+    // Componente AdminDropdown interno
+    const AdminDropdown = () => {
+        const [isOpen, setIsOpen] = useState(false);
+
+        const handleToggle = () => {
+            setIsOpen(!isOpen);
+        };
+
+        const handleClose = () => {
+            setIsOpen(false);
+        };
+
+        // Si no es admin, no mostrar nada
+        if (!isAdminUser) return null;
+
+        return (
+            <li className="nav-item dropdown">
+                <a 
+                    className="nav-link dropdown-toggle" 
+                    href="#" 
+                    id="adminDropdown" 
+                    role="button" 
+                    data-bs-toggle="dropdown" 
+                    aria-expanded={isOpen}
+                    onClick={handleToggle}
+                >
+                    <i className="fas fa-cog me-1"></i>
+                    Admin Panel
+                </a>
+                <ul 
+                    className={`dropdown-menu ${isOpen ? 'show' : ''}`} 
+                    aria-labelledby="adminDropdown"
+                    style={{ minWidth: "200px" }}
+                >
+                    <li>
+                        <Link className="dropdown-item" to="/admin" onClick={handleClose}>
+                            <i className="fas fa-tachometer-alt me-2"></i>
+                            Dashboard
+                        </Link>
+                    </li>
+                    <li>
+                        <Link className="dropdown-item" to="/admin/categorias" onClick={handleClose}>
+                            <i className="fas fa-tags me-2"></i>
+                            Categorías
+                        </Link>
+                    </li>
+                    <li>
+                        <Link className="dropdown-item" to="/admin/productos" onClick={handleClose}>
+                            <i className="fas fa-box me-2"></i>
+                            Productos
+                        </Link>
+                    </li>
+                    <li>
+                        <Link className="dropdown-item" to="/admin/usuarios" onClick={handleClose}>
+                            <i className="fas fa-users me-2"></i>
+                            Usuarios
+                        </Link>
+                    </li>
+                    <li><hr className="dropdown-divider" /></li>
+                    <li>
+                        <Link className="dropdown-item" to="/productos" onClick={handleClose}>
+                            <i className="fas fa-store me-2"></i>
+                            Ver Tienda
+                        </Link>
+                    </li>
+                </ul>
+            </li>
+        );
+    };
+
     return (
         <nav className="navbar navbar-expand-lg navbar-dark bg-primary shadow">
             <div className="container">
@@ -69,23 +163,24 @@ function Navbar() {
                     TISKOSOLUTIONS S.R.L.
                 </Link>
 
-                <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <button 
+                    className="navbar-toggler" 
+                    type="button" 
+                    data-bs-toggle="collapse" 
+                    data-bs-target="#navbarNav" 
+                    aria-controls="navbarNav" 
+                    aria-expanded="false" 
+                    aria-label="Toggle navigation"
+                >
                     <span className="navbar-toggler-icon"></span>
                 </button>
 
                 <div className="collapse navbar-collapse" id="navbarNav">
                     <ul className="navbar-nav me-auto">
+                        {/* Admin Dropdown - solo visible para admin */}
+                        <AdminDropdown />
 
-                        {
-                            authenticated && isAdmin() && (
-                                <li className="nav-item">
-                                    <Link className="nav-link" to="/dashboard">
-                                        Dashboard
-                                    </Link>
-                                </li>
-                            )
-                        }
-                        
+                        {/* Enlaces públicos */}
                         <li className="nav-item">
                             <Link className="nav-link" to="/soluciones">Soluciones</Link>
                         </li>
@@ -98,33 +193,19 @@ function Navbar() {
                         <li className="nav-item">
                             <Link className="nav-link" to="/about">Nosotros</Link>
                         </li>
-
-                        {/* Admin Panel - solo visible para admin */}
-                        {/*isAdmin() && (
-                            <li className="nav-item dropdown">
-                                <a className="nav-link dropdown-toggle" href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown">
-                                    <i className="fas fa-cog me-1"></i>
-                                    Admin Panel
-                                </a>
-                                <ul className="dropdown-menu">
-                                    <li><Link className="dropdown-item" to="/admin/usuarios">
-                                        <i className="fas fa-users me-2"></i>Gestionar Usuarios
-                                    </Link></li>
-                                    <li><Link className="dropdown-item" to="/admin/productos">
-                                        <i className="fas fa-boxes me-2"></i>Gestionar Productos
-                                    </Link></li>
-                                    <li><Link className="dropdown-item" to="/admin/configuracion">
-                                        <i className="fas fa-cogs me-2"></i>Configuración
-                                    </Link></li>
-                                </ul>
-                            </li>
-                        )*/}
                     </ul>
 
                     <ul className="navbar-nav">
                         {authenticated && user ? (
                             <li className="nav-item dropdown">
-                                <a className="nav-link dropdown-toggle d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <a 
+                                    className="nav-link dropdown-toggle d-flex align-items-center" 
+                                    href="#" 
+                                    id="navbarDropdown" 
+                                    role="button" 
+                                    data-bs-toggle="dropdown" 
+                                    aria-expanded="false"
+                                >
                                     <i className={`fas ${getRoleIcon(userRole)} me-1`}></i>
                                     <span>{user.paterno} {user.materno}, {user.nombre || "Usuario"}</span>
                                     {getRoleBadge(userRole)}
@@ -146,25 +227,35 @@ function Navbar() {
                                     <li><hr className="dropdown-divider" /></li>
                                     
                                     {/* Opciones según el rol */}
-                                    {isAdmin() && (
+                                    {isAdminUser && (
                                         <>
-                                            <li><Link className="dropdown-item" to="/admin">
-                                                <i className="fas fa-users-cog me-2"></i>Admin Panel
-                                            </Link></li>
+                                            <li>
+                                                <Link className="dropdown-item" to="/admin">
+                                                    <i className="fas fa-users-cog me-2"></i>
+                                                    Admin Panel
+                                                </Link>
+                                            </li>
                                             <li><hr className="dropdown-divider" /></li>
                                         </>
                                     )}
                                     
-                                    <li><Link className="dropdown-item" to="/perfil">
-                                        <i className="fas fa-user-edit me-2"></i>Mi Perfil
-                                    </Link></li>
-                                    <li><Link className="dropdown-item" to="/configuracion">
-                                        <i className="fas fa-cog me-2"></i>Configuración
-                                    </Link></li>
+                                    <li>
+                                        <Link className="dropdown-item" to="/perfil">
+                                            <i className="fas fa-user-edit me-2"></i>
+                                            Mi Perfil
+                                        </Link>
+                                    </li>
+                                    <li>
+                                        <Link className="dropdown-item" to="/configuracion">
+                                            <i className="fas fa-cog me-2"></i>
+                                            Configuración
+                                        </Link>
+                                    </li>
                                     <li><hr className="dropdown-divider" /></li>
                                     <li>
                                         <button className="dropdown-item text-danger" onClick={handleLogout}>
-                                            <i className="fas fa-sign-out-alt me-2"></i>Cerrar Sesión
+                                            <i className="fas fa-sign-out-alt me-2"></i>
+                                            Cerrar Sesión
                                         </button>
                                     </li>
                                 </ul>

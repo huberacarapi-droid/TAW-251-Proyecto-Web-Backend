@@ -176,8 +176,6 @@ export class ProductsService {
         where: { id: categoryId },
       });
 
-      console.log(category);
-
       if (!category) {
         throw new HttpException(
           `Categoría con ID ${categoryId} no encontrada`,
@@ -201,7 +199,7 @@ export class ProductsService {
 
       return products;
     } catch (error) {
-      console.log(error);
+      //console.log(error);
 
       if (error instanceof HttpException) {
         throw error;

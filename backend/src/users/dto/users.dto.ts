@@ -8,6 +8,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { UserRole } from '../entities/users.entity';
+import { IsStrongPassword } from './is-strong-password.decorator';
 
 export class CreateUserDto {
   @IsString({ message: 'El nombre debe ser una cadena de texto' })
@@ -53,6 +54,7 @@ export class CreateUserDto {
   @MaxLength(100, {
     message: 'La contraseña no puede tener más de 100 caracteres',
   })
+  @IsStrongPassword()
   password!: string;
 }
 
@@ -86,6 +88,7 @@ export class UpdateUserDto {
     @IsNotEmpty({ message: 'La contraseña no puede estar vacía' })
     @MinLength(8, { message: 'La contraseña debe tener al menos 8 caracteres' })
     @MaxLength(100, { message: 'La contraseña no puede tener más de 100 caracteres' })
+    @IsStrongPassword()
     password?: string;
 
     @IsOptional()
