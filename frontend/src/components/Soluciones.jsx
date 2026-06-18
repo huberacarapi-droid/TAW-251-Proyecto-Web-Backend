@@ -1,8 +1,8 @@
 function Soluciones() {
     return (
-        <div className="container mt-5">
-            <div className="text-center mb-5">
-                <h2 className="fw-bold">Soluciones Tecnológicas</h2>
+        <div className="container mt-1">
+            <div className="text-center mb-2">
+                <h2 className="fw-bold text-primary">Soluciones Tecnológicas</h2>
                 <p className="text-muted mx-auto" style={{ maxWidth: "720px" }}>
                     Ofrecemos soluciones integrales que combinan hardware, software y servicios especializados
                     para optimizar tus procesos y potenciar tu transformación digital.
@@ -10,7 +10,7 @@ function Soluciones() {
             </div>
 
             <div className="row g-4">
-                <div className="col-sm-6 col-xl-3">
+                <div className="col-sm-12 col-xl-6">
                     <div className="card h-100 shadow-sm border-0 rounded-4">
                         <div className="card-body p-4">
                             <div className="mb-3 d-flex align-items-center justify-content-between">
@@ -28,7 +28,7 @@ function Soluciones() {
                     </div>
                 </div>
 
-                <div className="col-sm-6 col-xl-3">
+                <div className="col-sm-12 col-xl-6">
                     <div className="card h-100 shadow-sm border-0 rounded-4">
                         <div className="card-body p-4">
                             <div className="mb-3 d-flex align-items-center justify-content-between">
@@ -46,7 +46,7 @@ function Soluciones() {
                     </div>
                 </div>
 
-                <div className="col-sm-6 col-xl-3">
+                <div className="col-sm-12 col-xl-6">
                     <div className="card h-100 shadow-sm border-0 rounded-4">
                         <div className="card-body p-4">
                             <div className="mb-3 d-flex align-items-center justify-content-between">
@@ -62,7 +62,7 @@ function Soluciones() {
                     </div>
                 </div>
 
-                <div className="col-sm-6 col-xl-3">
+                <div className="col-sm-12 col-xl-6">
                     <div className="card h-100 shadow-sm border-0 rounded-4">
                         <div className="card-body p-4">
                             <div className="mb-3 d-flex align-items-center justify-content-between">

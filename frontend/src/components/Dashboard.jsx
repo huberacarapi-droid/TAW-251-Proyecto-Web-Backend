@@ -10,10 +10,9 @@ function Dashboard() {
 
     return (
         <div>
-            <h1>Dashboard</h1>
-            <p>Bienvenido 👋</p>
+            <h1 className="Display-2 text-primary">Dashboard</h1>
+            <p>Este es el dashboard</p>
 
-            <button onClick={handleLogout}>Cerrar sesión</button>
         </div>
     );
 }

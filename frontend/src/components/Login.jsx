@@ -1,17 +1,65 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import ReCAPTCHA from "react-google-recaptcha";
 import logo from "../assets/logo.png";
+import { login } from "../services/authService";
 
 function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [captchaToken, setCaptchaToken] = useState(null);
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+    
     const navigate = useNavigate();
+    const captchaRef = useRef(null);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setError("");
 
-    
-        navigate("/");
+        // Validar captcha
+        if (!captchaToken || captchaToken.trim() === "") {
+            setError("Por favor complete el captcha");
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            // Pasar el captchaToken como tercer parámetro
+            const data = await login(email, password, captchaToken);
+
+            // El backend devuelve access_token
+            localStorage.setItem("token", data.access_token);
+            localStorage.setItem("user", JSON.stringify(data.user));
+            
+            // Redirigir al inicio
+            navigate("/");
+        } catch (err) {
+            setError(err.message || "Error de conexión con el servidor");
+            console.error("Error en login:", err);
+            
+            // Resetear captcha en caso de error
+            if (captchaRef.current) {
+                captchaRef.current.reset();
+                setCaptchaToken(null);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Manejar cambio de captcha
+    const handleCaptchaChange = (token) => {
+        console.log("Captcha completado:", token ? "Token recibido" : "Token vacío");
+        setCaptchaToken(token);
+    };
+
+    // Manejar expiración del captcha
+    const handleCaptchaExpired = () => {
+        console.log("Captcha expirado");
+        setCaptchaToken(null);
     };
 
     return (
@@ -22,7 +70,7 @@ function Login() {
                     <div className="text-center">
                         <img 
                             src={logo} 
-                            alt="Tisko Solutions" 
+                            alt="TISKOSOLUTIONS S.R.L." 
                             className="img-fluid mb-4" 
                             style={{ maxWidth: "500px" }} 
                         />
@@ -35,32 +83,89 @@ function Login() {
                         <h4 className="mb-4 text-center">Iniciar Sesión</h4>
 
                         <form onSubmit={handleSubmit}>
+                            {error && (
+                                <div className="alert alert-danger alert-dismissible fade show" role="alert">
+                                    <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                                    {error}
+                                    <button 
+                                        type="button" 
+                                        className="btn-close" 
+                                        onClick={() => setError("")}
+                                        aria-label="Close"
+                                    ></button>
+                                </div>
+                            )}
+
                             <div className="form-group mb-3">
-                                <label>Correo</label>
+                                <label htmlFor="email">Correo</label>
                                 <input
+                                    id="email"
                                     type="email"
-                                    className="form-control"
+                                    className={`form-control ${error ? 'is-invalid' : ''}`}
                                     placeholder="ejemplo@email.com"
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    value={email}
+                                    onChange={(e) => {
+                                        setEmail(e.target.value);
+                                        if (error) setError("");
+                                    }}
                                     required
+                                    disabled={loading}
                                 />
                             </div>
 
                             <div className="form-group mb-3">
-                                <label>Contraseña</label>
+                                <label htmlFor="password">Contraseña</label>
                                 <input
+                                    id="password"
                                     type="password"
-                                    className="form-control"
+                                    className={`form-control ${error ? 'is-invalid' : ''}`}
                                     placeholder="********"
-                                    onChange={(e) => setPassword(e.target.value)}
+                                    value={password}
+                                    onChange={(e) => {
+                                        setPassword(e.target.value);
+                                        if (error) setError("");
+                                    }}
                                     required
+                                    disabled={loading}
                                 />
                             </div>
 
-                            <button type="submit" className="btn btn-primary w-100">
-                                Ingresar
+                            {/* CAPTCHA */}
+                            <div className="mb-3 d-flex justify-content-center">
+                                <ReCAPTCHA
+                                    ref={captchaRef}
+                                    sitekey={"6Le7XCUtAAAAAIHLEVISFJ9vnLZnuk9jGP1GGgAB"}
+                                    onChange={handleCaptchaChange}
+                                    onExpired={handleCaptchaExpired}
+                                    onError={() => {
+                                        console.error("Error al cargar el captcha");
+                                        setCaptchaToken(null);
+                                    }}
+                                />
+                            </div>
+
+                            <button 
+                                type="submit" 
+                                className="btn btn-primary w-100"
+                                disabled={loading || !captchaToken}
+                            >
+                                {loading ? (
+                                    <>
+                                        <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        Iniciando...
+                                    </>
+                                ) : "Ingresar"}
                             </button>
                         </form>
+
+                        <div className="mt-3 text-center">
+                            <small>
+                                ¿No tienes cuenta?{" "}
+                                <a href="/register" className="text-primary">
+                                    Regístrate aquí
+                                </a>
+                            </small>
+                        </div>
 
                         <div className="mt-3 text-center">
                             <small className="text-muted">

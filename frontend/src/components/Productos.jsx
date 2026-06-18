@@ -1,74 +1,105 @@
+// src/components/Productos.jsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api } from '../services/productService';
+import '../styles/Productos.css';
+
 function Productos() {
+    const [categories, setCategories] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        loadCategories();
+    }, []);
+
+    const loadCategories = async () => {
+        try {
+            setLoading(true);
+            const data = await api.getCategories();
+            setCategories(data);
+            setError(null);
+        } catch (err) {
+            setError('Error al cargar las categorías');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCategoryClick = (categoryId) => {
+        navigate(`/productos/categoria/${categoryId}`);
+    };
+
+    if (loading) {
+        return (
+            <div className="container mt-5 text-center">
+                <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="container mt-5">
+                <div className="alert alert-danger" role="alert">
+                    {error}
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="container mt-5">
-            <div className="text-center mb-5">
-                <h2 className="fw-bold">Productos</h2>
+        <div className="container-fluid">
+            <div className="text-center mb-2">
+                <h2 className="fw-bold text-primary">Productos</h2>
                 <p className="text-muted mx-auto" style={{ maxWidth: "720px" }}>
-                    Descubre nuestras categorías de productos diseñadas para conectar, medir y automatizar procesos industriales.
-                    Ofrecemos soluciones completas con hardware y software pensados para cada etapa de tu operación.
+                    Descubre nuestras categorías de productos diseñadas para conectar,
+                    medir y automatizar procesos industriales. Ofrecemos soluciones
+                    completas con hardware y software pensados para cada etapa de tu operación.
                 </p>
             </div>
 
             <div className="row g-4">
-                <div className="col-sm-6 col-xl-3">
-                    <div className="card h-100 shadow-sm border-0 rounded-4">
-                        <div className="card-body p-4">
-                            <div className="mb-3 d-flex align-items-center justify-content-between">
-                                <span className="badge bg-primary py-2 px-3 rounded-pill">Categoria</span>
-                                <i className="fas fa-thermometer-half fa-2x text-primary"></i>
-                            </div>
-                            <h5 className="card-title fw-semibold">Sensores de temperatura y humedad</h5>
-                            <p className="card-text text-secondary">
-                                Lecturas precisas para ambientes críticos, con sensores robustos y calibrados para controlar condiciones de procesos y almacenes.
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                {categories.map((category) => {
+                    return (
+                        <div
+                            key={category.id}
+                            className="col-sm-12 col-xl-6"
+                            onClick={() => handleCategoryClick(category.id)}
+                            style={{ cursor: 'pointer' }}
+                        >
+                            <div className="card h-100 shadow-sm border-0 rounded-4 category-card hover-effect">
+                                {/* Cuerpo de la tarjeta */}
+                                <div className="card-body p-4">
+                                    <div className="mb-3 d-flex align-items-center justify-content-between">
+                                        <span className="badge bg-primary py-2 px-3 rounded-pill">
+                                            Categoría
+                                        </span>
+                                    </div>
+                                    <h5 className="card-title fw-semibold">{category.nombre}</h5>
+                                    <p className="card-text text-secondary">{category.descripcion}</p>
+                                </div>
 
-                <div className="col-sm-6 col-xl-3">
-                    <div className="card h-100 shadow-sm border-0 rounded-4">
-                        <div className="card-body p-4">
-                            <div className="mb-3 d-flex align-items-center justify-content-between">
-                                <span className="badge bg-success py-2 px-3 rounded-pill">Categoria</span>
-                                <i className="fas fa-wifi fa-2x text-success"></i>
+                                {/* Footer de la tarjeta con el botón */}
+                                <div className="card-footer bg-transparent border-0 px-4 pb-4 pt-0">
+                                    <button
+                                        className="btn btn-outline-primary w-100"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleCategoryClick(category.id);
+                                        }}
+                                    >
+                                        Ver productos
+                                    </button>
+                                </div>
                             </div>
-                            <h5 className="card-title fw-semibold">Equipos IoT</h5>
-                            <p className="card-text text-secondary">
-                                Dispositivos conectados listos para transmitir datos en tiempo real y permitir decisiones inteligentes en tu operación.
-                            </p>
                         </div>
-                    </div>
-                </div>
-
-                <div className="col-sm-6 col-xl-3">
-                    <div className="card h-100 shadow-sm border-0 rounded-4">
-                        <div className="card-body p-4">
-                            <div className="mb-3 d-flex align-items-center justify-content-between">
-                                <span className="badge bg-warning text-dark py-2 px-3 rounded-pill">Categoria</span>
-                                <i className="fas fa-chart-line fa-2x text-warning"></i>
-                            </div>
-                            <h5 className="card-title fw-semibold">Sistemas de monitoreo</h5>
-                            <p className="card-text text-secondary">
-                                Plataformas visuales y alertas automáticas para supervisar variables clave y evitar fallas antes de que ocurran.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="col-sm-6 col-xl-3">
-                    <div className="card h-100 shadow-sm border-0 rounded-4">
-                        <div className="card-body p-4">
-                            <div className="mb-3 d-flex align-items-center justify-content-between">
-                                <span className="badge bg-info text-dark py-2 px-3 rounded-pill">Categoria</span>
-                                <i className="fas fa-industry fa-2x text-info"></i>
-                            </div>
-                            <h5 className="card-title fw-semibold">Instrumentación industrial</h5>
-                            <p className="card-text text-secondary">
-                                Equipos robustos para medición y control de presión, flujo, niveles y procesos industriales exigentes.
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                    );
+                })}
             </div>
         </div>
     );

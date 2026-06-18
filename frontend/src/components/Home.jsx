@@ -4,12 +4,11 @@ function Home() {
     return (
         <div>
             
-
             {/* Servicios Destacados */}
-            <section className="py-5 bg-light">
+            <section className="py-1 bg-light">
                 <div className="container">
                     <div className="text-center mb-5">
-                        <h2 className="fw-bold">Nuestros Servicios</h2>
+                        <h2 className="fw-bold text-primary">Nuestros Servicios</h2>
                         <p className="text-muted">Soluciones especializadas para cada necesidad tecnológica</p>
                     </div>
                     <div className="row g-4">
@@ -62,7 +61,7 @@ function Home() {
             <section className="py-5">
                 <div className="container">
                     <div className="text-center mb-5">
-                        <h2 className="fw-bold">Nuestros Productos</h2>
+                        <h2 className="fw-bold text-primary">Nuestros Productos</h2>
                         <p className="text-muted">Tecnología de vanguardia para tus proyectos</p>
                     </div>
                     <div className="row g-4">
@@ -122,7 +121,7 @@ function Home() {
             {/* CTA Section */}
             <section className="bg-secondary text-white py-5">
                 <div className="container text-center">
-                    <h2 className="fw-bold mb-4">¿Listo para transformar tu empresa?</h2>
+                    <h2 className="fw-bold text-primary mb-4">¿Listo para transformar tu empresa?</h2>
                     <p className="lead mb-4">
                         Contáctanos hoy y descubre cómo nuestras soluciones pueden impulsar tu crecimiento.
                     </p>

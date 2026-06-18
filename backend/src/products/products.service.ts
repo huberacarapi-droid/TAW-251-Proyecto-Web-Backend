@@ -168,4 +168,49 @@ export class ProductsService {
 
     return result;
   }
+  
+  // products.service.ts
+  async getProductsByCategory(categoryId: number): Promise<Product[]> {
+    try {
+      const category = await this.categoryRepository.findOne({
+        where: { id: categoryId },
+      });
+
+      console.log(category);
+
+      if (!category) {
+        throw new HttpException(
+          `Categoría con ID ${categoryId} no encontrada`,
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      const products = await this.productRepository.find({
+        where: {
+          category: {
+            id: categoryId,
+          },
+        },
+        relations: {
+          images: true,
+        },
+        order: {
+          createdAt: 'DESC',
+        },
+      });
+
+      return products;
+    } catch (error) {
+      console.log(error);
+
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Error al obtener productos por categoría',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 }

@@ -5,7 +5,7 @@ function MainLayout() {
     return (
         <>
             <Navbar />
-            <div className="container mt-4">
+            <div className="container-fluid mt-4">
                 <Outlet />
             </div>
         </>

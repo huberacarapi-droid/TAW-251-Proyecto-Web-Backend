@@ -73,4 +73,12 @@ export class ProductsController {
       id,
     );
   }
+
+  @Get('category/:categoryId')
+  getProductsByCategory(
+    @Param('categoryId', ParseIntPipe) categoryId: number,
+  ): Promise<Product[] | HttpException> {
+    console.log(categoryId)
+    return this.productsService.getProductsByCategory(categoryId);
+  }
 }

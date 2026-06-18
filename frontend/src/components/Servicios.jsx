@@ -1,8 +1,8 @@
 function Servicios() {
     return (
-        <div className="container mt-5">
-            <div className="text-center mb-5">
-                <h2 className="fw-bold">Servicios</h2>
+        <div className="container-fluid mt-1">
+            <div className="text-center mb-2">
+                <h2 className="fw-bold text-primary">Servicios</h2>
                 <p className="text-muted mx-auto" style={{ maxWidth: "720px" }}>
                     Nuestros servicios especializados en monitoreo y análisis ambiental garantizan la calidad y seguridad de tus procesos.
                     Utilizamos tecnología avanzada para proporcionar datos precisos y reportes detallados.

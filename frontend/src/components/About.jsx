@@ -1,8 +1,8 @@
 function About() {
     return (
-        <div className="container mt-5">
-            <div className="text-center mb-5">
-                <h2 className="fw-bold">Sobre Nosotros</h2>
+        <div className="container mt-1">
+            <div className="text-center mb-2">
+                <h2 className="fw-bold text-primary">Sobre Nosotros</h2>
                 <p className="text-muted mx-auto" style={{ maxWidth: "680px" }}>
                     En TISKOSOLUTIONS S.R.L. trabajamos para ofrecer valor real a nuestros clientes,
                     a través de soluciones tecnológicas seguras, eficientes y adaptadas a cada desafío.
@@ -31,10 +31,10 @@ function About() {
                     <div className="card shadow-sm rounded-4 border-0 h-100">
                         <div className="card-body p-4">
                             <div className="d-flex align-items-center mb-3">
-                                <span className="badge bg-secondary rounded-pill me-3 py-2 px-3">
+                                <span className="badge bg-success rounded-pill me-3 py-2 px-3">
                                     Visión
                                 </span>
-                                <i className="fas fa-eye fa-lg text-secondary"></i>
+                                <i className="fas fa-eye fa-lg text-success"></i>
                             </div>
                             <p className="card-text text-secondary lh-lg">
                                 Ser reconocidos como líderes globales en el desarrollo de soluciones integrales, destacando por nuestra excelencia en el servicio, innovación tecnológica y capacidad para resolver los desafíos más complejos.

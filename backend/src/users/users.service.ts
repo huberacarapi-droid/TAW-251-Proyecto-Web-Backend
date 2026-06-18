@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import {User} from './entities/users.entity';
 import { CreateUserDto, UpdateUserDto } from './dto/users.dto';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -15,6 +16,12 @@ export class UsersService {
     if(userExists){
       return new HttpException('El usuario con este email ya existe', HttpStatus.CONFLICT);
     }
+    // Si el usuario no existe, hasheamos la contraseña
+    user.password =
+    await bcrypt.hash(
+      user.password,
+      10,
+    );
     // Si no existe, creamos el nuevo usuario
     const newUser = this.userRepository.create(user);
     return this.userRepository.save(newUser);
@@ -40,22 +47,26 @@ export class UsersService {
     return userFound;
   }
 
-  async updateUser(id: number, user: UpdateUserDto){
-    // Buscamos el usuario por id
-    const userFound = await this.userRepository.findOne({ 
-        where: { // Find Where options
-          id 
-        } 
-      }
-    ); 
-    // Si no se encuentra el usuario, lanzamos una excepción
-    if(!userFound){
-      return new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+  async updateUser(id: number, user: UpdateUserDto) {
+    const userFound = await this.userRepository.findOne({
+      where: { id },
+    });
+
+    if (!userFound) {
+      throw new HttpException(
+        'Usuario no encontrado',
+        HttpStatus.NOT_FOUND,
+      );
     }
-    // Si se encuentra el usuario, lo actualizamos
-    const updatedUser = Object.assign(userFound, user); // Asignamos los nuevos valores al usuario encontrado
-    return this.userRepository.save(updatedUser); // Guardamos el usuario actualizado en la base de datos  
-    //return this.userRepository.update({id}, user);
+
+    // Actualizar contraseña solo si fue enviada
+    if (user.password) {
+      user.password = await bcrypt.hash(user.password, 10);
+    }
+
+    const updatedUser = Object.assign(userFound, user);
+
+    return this.userRepository.save(updatedUser);
   }
 
   async deleteUser(id: number) {
